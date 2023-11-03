@@ -22,9 +22,20 @@ public:
         constraint_matrix = nullptr;
         inequalities_type = nullptr;
         constraint_vector = nullptr;
-
     }
-
+    ~lpProblem(){
+        delete [] objective_function;
+        for(int i = 0; i < constraints_count; i++){
+            delete [] constraint_matrix[i];
+            constraint_matrix[i] = nullptr;
+        }
+        delete [] constraint_matrix;
+        constraint_matrix = nullptr;
+        delete [] inequalities_type;
+        inequalities_type = nullptr;
+        delete [] constraint_vector;
+        constraint_vector = nullptr;
+    }
     void setProblemInfo(int _variables_count,int _constraints_count,int _problem_type){
         variables_count = _variables_count;
         constraints_count = _constraints_count; 
@@ -53,6 +64,7 @@ public:
 
     void displayProblem(string variable);
     void makeCanonical();
+    lpProblem computeDual();
 
 };
 
@@ -82,7 +94,7 @@ void lpProblem::displayProblem(string variable = "X"){
         cout << constraint_vector[i] << "\n";
     }
     for(int i = 0; i < variables_count; i++){
-        cout << "X" << i + 1;
+        cout << variable << i + 1;
         if(i < variables_count - 1){
             cout << ", ";
         }
@@ -123,27 +135,52 @@ void lpProblem::makeCanonical(){
             for(int j = 0; j < variables_count; j++){
                 constraint_matrix[i][j] *= -1;
             }
-            if(inequalities_type[i] == ">"){
-                inequalities_type[i] = "<";
-            }
-            else{
-                inequalities_type[i] = "<=";
-            }
+            inequalities_type[i] = "<=";
             constraint_vector[i] *= -1;
+        }
+        else if(inequalities_type[i] == "<"){
+            inequalities_type[i] = "<=";
         }
     }
     if(problem_type == 2){
         for(int i = 0; i < constraints_count; i++){
-            if(inequalities_type[i] == "<"){
-                inequalities_type[i] = ">";
-            }
-            else{
-                inequalities_type[i] = ">=";
-            }
             for(int j = 0; j < variables_count; j++){
                 constraint_matrix[i][j] *= -1;
             }
+            inequalities_type[i] = ">=";
             constraint_vector[i] *= -1;
         }
     }
+}
+
+lpProblem lpProblem::computeDual(){
+    lpProblem dual;
+    int dual_problem_type;
+    dual_problem_type = 1 ? problem_type == 2 : 2;
+    dual.setProblemInfo(constraints_count, variables_count, dual_problem_type);
+    int *dual_objective_function = new int[constraints_count];
+    for(int i = 0; i < constraints_count; i++){
+        dual_objective_function[i] = constraint_vector[i];
+    }
+    dual.setObjectiveFunction(dual_objective_function);
+    int **dual_constraint_matrix = new int*[variables_count], *dual_constraint_vector = new int[variables_count];
+    for(int i = 0; i < variables_count; i++){
+        dual_constraint_matrix[i] = new int[constraints_count];
+    }
+    string *dual_inequalities_type = new string[variables_count];
+    for(int i = 0; i < variables_count; i++){
+        for(int j = 0; j < constraints_count; j++){
+            dual_constraint_matrix[i][j] = constraint_matrix[j][i];   
+        }
+        dual_constraint_vector[i] = objective_function[i];
+        if(problem_type == 1){
+            dual_inequalities_type[i] = ">=";
+        }
+        else{
+            dual_inequalities_type[i] = "<=";
+        }
+    }
+    dual.setProblemConstraints(dual_constraint_matrix, dual_inequalities_type, dual_constraint_vector);
+    return dual;
+
 }

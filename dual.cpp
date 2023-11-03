@@ -4,11 +4,9 @@
 
 using namespace std;
 
-string MENU = "commands: \n1. Compute Dual \n2. Exit \nEnter the command number: ";
+string MENU = "commands: \n1. Insert problem \n2. Display problem \n3. Compute dual \n4.Exit \nEnter the command number: ";
 
-void LP_dual(){
-    lpProblem p;
-
+void get_problem(lpProblem &p){
     cout << "problem information.\n";
     int variables_count, constraints_count, problem_type;
     while(true){
@@ -50,18 +48,26 @@ void LP_dual(){
     }
     p.setProblemConstraints(constraint_matrix, inequalities_type, constraint_vector);
     p.makeCanonical();
-    p.displayProblem();
 }
 
 int main(){
+    lpProblem p;
     while(true){
         cout << MENU;
         int command;
         cin >> command;
         if(command == 1){
-            LP_dual();
+            get_problem(p);
         }
         else if(command == 2){
+            p.displayProblem();
+        }
+        else if(command == 3){
+            cout << "The dual is :\n";
+            p.computeDual().displayProblem("Y");
+
+        }
+        else if(command == 4){
             cout << "Bye.\n";
             break;
         }
