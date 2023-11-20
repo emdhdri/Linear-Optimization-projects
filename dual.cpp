@@ -4,11 +4,12 @@
 
 using namespace std;
 
-string MENU = "commands: \n1. Insert problem \n2. Display problem \n3. Compute dual \n4.Exit \nEnter the command number: ";
+string MENU = "commands: \n1. Insert problem \n2. Display problem \n3. Make Standard \n4. Compute dual \n5.Compute Simplex with Big M \n6. Exit \nEnter the command number: ";
 
 void get_problem(lpProblem &p){
     cout << "problem information.\n";
     int variables_count, constraints_count, problem_type;
+    float objective_function_constant;
     while(true){
         cout << "Enter decision variables count: ";
         cin >> variables_count;
@@ -25,11 +26,11 @@ void get_problem(lpProblem &p){
         }
     }
 
-    int *objective_function = new int[variables_count], *constraint_vector = new int[constraints_count];
-    int **constraint_matrix = new int*[constraints_count];
+    float *objective_function = new float[variables_count], *constraint_vector = new float[constraints_count];
+    float **constraint_matrix = new float*[constraints_count];
     string *inequalities_type = new string[constraints_count];
     for(int i = 0; i < constraints_count; i++){
-        constraint_matrix[i] = new int[variables_count];
+        constraint_matrix[i] = new float[variables_count];
     }
     cout << "Enter Objective Function: \n";
     for(int i = 0; i < variables_count; i++){
@@ -37,22 +38,33 @@ void get_problem(lpProblem &p){
     }
     p.setObjectiveFunction(objective_function);
 
-    cout << "Constraints \n";
+    cout << "Constraints :\n";
     for(int i = 0; i < constraints_count; i++){
-        cout << "Enter constraint number " << i + 1 << "\n";
         for(int j = 0; j < variables_count; j++){
             cin >> constraint_matrix[i][j];
         }
         cin >> inequalities_type[i];
         cin >> constraint_vector[i];
     }
+    cout << "Variables lower bound: \n";
+    for(int i = 0; i < variables_count; i++){
+        float lower_bound;
+        cin >> lower_bound;
+        if(lower_bound != 0){
+            for(int j = 0; j < constraints_count; j++){
+                constraint_vector[j] -= lower_bound * constraint_matrix[j][i];
+            }
+            //constant for objective function
+        }
+    }
     p.setProblemConstraints(constraint_matrix, inequalities_type, constraint_vector);
-    p.makeCanonical();
+    //p.makeCanonical();
 }
 
 int main(){
     lpProblem p;
     while(true){
+        system("clear");
         cout << MENU;
         int command;
         cin >> command;
@@ -61,14 +73,26 @@ int main(){
         }
         else if(command == 2){
             p.displayProblem();
+            system("read -n 1 -s -r -p \"Press any key to continue\"");
         }
         else if(command == 3){
-            cout << "The dual is :\n";
-            p.computeDual().displayProblem("Y");
-
+            cout << "The standard form is :\n";
+            p.makeStandardFrom();
+            system("read -n 1 -s -r -p \"Press any key to continue\"");
         }
         else if(command == 4){
-            cout << "Bye.\n";
+            cout << "The dual is :\n";
+            p.computeDual().displayProblem("Y");
+            system("read -n 1 -s -r -p \"Press any key to continue\"");
+
+        }
+        else if(command == 5){
+            cout << "Result is : \n";
+            p.computeSimplex_BigM();
+            system("read -n 1 -s -r -p \"Press any key to continue\"");
+        }
+        else if(command == 6){
+            cout << "Bye\n";
             break;
         }
         else{
