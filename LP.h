@@ -13,75 +13,120 @@ class lpProblem{
     float **constraint_matrix;
     string *inequalities_type;
     float *constraint_vector;
-    int *base, *is_base;
+    int *base;
     vector<int> artificial_variables;
     bool isCanonical, isStandard;
+    float *results;
+    float Z;
+    bool solved;
 public:
-    lpProblem(){
-        variables_count = 0;
-        constraints_count = 0;
-        problem_type = -1;
-        objective_function = nullptr;
-        constraint_matrix = nullptr;
-        inequalities_type = nullptr;
-        constraint_vector = nullptr;
-        base = nullptr;
-        is_base = nullptr;
-        isCanonical = false;
-        isCanonical = false;
-    }
-    ~lpProblem(){
-        delete [] objective_function;
-        for(int i = 0; i < constraints_count; i++){
-            delete [] constraint_matrix[i];
-            constraint_matrix[i] = nullptr;
-        }
-        delete [] constraint_matrix;
-        constraint_matrix = nullptr;
-        delete [] inequalities_type;
-        inequalities_type = nullptr;
-        delete [] constraint_vector;
-        constraint_vector = nullptr;
-        delete [] base;
-        base = nullptr;
-        delete [] is_base;
-        is_base = nullptr;
-    }
-    void setProblemInfo(int _variables_count,int _constraints_count,int _problem_type){
-        variables_count = _variables_count;
-        constraints_count = _constraints_count; 
-        problem_type = _problem_type;
-    }
 
-    void setObjectiveFunction(float *_objective_function){
-        objective_function = _objective_function;
-        _objective_function = nullptr;
-        /*for(int i = 0; i < variables_count; i++){
-            if(objective_function[i] != 0){
-                nonzero_indexes.push_back(i);
-            }
-        }*/
-    }
-
-    void setProblemConstraints(float **_constraint_matrix, string *_inequalities_type, float *_constraint_vector){
-        constraint_matrix = _constraint_matrix;
-        inequalities_type = _inequalities_type;
-        constraint_vector = _constraint_vector;
-        _constraint_matrix = nullptr;
-        _inequalities_type = nullptr;
-        _constraint_vector = nullptr;
-
-    }
-
+    lpProblem();
+    ~lpProblem();
+    void setProblemInfo(int _variables_count,int _constraints_count,int _problem_type);
+    void setObjectiveFunction(float *_objective_function);
+    void setProblemConstraints(float **_constraint_matrix, string *_inequalities_type, float *_constraint_vector);
     void displayProblem(string variable);
     void makeCanonical(bool complete_canonical);
     void makeStandardFrom();
+    void solve(bool second);
     void computeSimplex_BigM(float M);
-    pair<float, vector<float>> computeSimplex_TwoPhase();
+    void computeSimplex_2phase();
     lpProblem computeDual();
     float compute_cost(int index);
     void change_row(int row1, int row2, float ratio);
+    void operator=(const lpProblem& C);
 };
+lpProblem::lpProblem(){
+    variables_count = 0;
+    constraints_count = 0;
+    problem_type = -1;
+    objective_function = nullptr;
+    constraint_matrix = nullptr;
+    inequalities_type = nullptr;
+    constraint_vector = nullptr;
+    base = nullptr;
+    isCanonical = false;
+    isCanonical = false;
+    solved = false;
+}
+void lpProblem::operator=(const lpProblem &P){
+    variables_count = P.variables_count;
+    constraints_count = P.constraints_count;
+    problem_type = P.problem_type;
+    if(objective_function != nullptr){
+        delete [] objective_function;
+    }
+    objective_function = new float[variables_count];
+    for(int i = 0; i < variables_count; i++){
+        objective_function[i] = P.objective_function[i];
+    }
+    if(constraint_matrix != nullptr){
+        for(int i = 0; i < constraints_count; i++){
+            if(constraint_matrix[i] != nullptr){
+                delete [] constraint_matrix[i];
+            }
+        }
+        delete [] constraint_matrix;
+    }
+    if(inequalities_type != nullptr){
+        delete [] inequalities_type;
+    }
+    if(constraint_vector != nullptr){
+        delete [] constraint_vector;
+    }
+    constraint_matrix = new float*[constraints_count];
+    inequalities_type = new string[constraints_count];
+    constraint_vector = new float[constraints_count];
+    for(int i = 0; i < constraints_count; i++){
+        constraint_matrix[i] = new float[variables_count];
+        for(int j = 0; j < variables_count; j++){
+            constraint_matrix[i][j] = P.constraint_matrix[i][j];
+        }
+        inequalities_type[i] = P.inequalities_type[i];
+        constraint_vector[i] = P.constraint_vector[i];
+    }
+    base = nullptr;
+    artificial_variables = P.artificial_variables;
+    isCanonical = P.isCanonical;
+    isStandard = P.isStandard;
+}
+
+lpProblem::~lpProblem(){
+    delete [] objective_function;
+    for(int i = 0; i < constraints_count; i++){
+        delete [] constraint_matrix[i];
+        constraint_matrix[i] = nullptr;
+    }
+    delete [] constraint_matrix;
+    constraint_matrix = nullptr;
+    delete [] inequalities_type;
+    inequalities_type = nullptr;
+    delete [] constraint_vector;
+    constraint_vector = nullptr;
+    delete [] base;
+    base = nullptr;
+}
+void lpProblem::setProblemInfo(int _variables_count,int _constraints_count,int _problem_type){
+    variables_count = _variables_count;
+    constraints_count = _constraints_count; 
+    problem_type = _problem_type;
+}
+
+void lpProblem::setObjectiveFunction(float *_objective_function){
+    objective_function = _objective_function;
+    _objective_function = nullptr;
+}
+
+void lpProblem::setProblemConstraints(float **_constraint_matrix, string *_inequalities_type, float *_constraint_vector){
+    constraint_matrix = _constraint_matrix;
+    inequalities_type = _inequalities_type;
+    constraint_vector = _constraint_vector;
+    _constraint_matrix = nullptr;
+    _inequalities_type = nullptr;
+    _constraint_vector = nullptr;
+
+}
 
 void lpProblem::displayProblem(string variable = "X"){
     cout << "--------------------------------------\n";
@@ -168,6 +213,9 @@ void lpProblem::makeCanonical(bool complete_canonical = true){
 }
 
 lpProblem lpProblem::computeDual(){
+    if(!isCanonical){
+        makeCanonical();
+    }
     lpProblem dual;
     int dual_problem_type;
     dual_problem_type = 1 ? problem_type == 2 : 2;
@@ -286,26 +334,38 @@ float lpProblem::compute_cost(int index){
     }
     return cost;
 }
-void lpProblem::computeSimplex_BigM(float M = 100000){
+
+void lpProblem::solve(bool second = false){
     float result_values[variables_count] = {};
-    //prepare problem and set artificial variables coefficient to M
-    for(auto artificial_variable: artificial_variables){
-        objective_function[artificial_variable] = M;
-    }
     //if problem is a minimizing problem then we miltiply objective funtion with -1 and calculate maximum
     if(problem_type != 1){
         for(int i = 0; i < variables_count; i++){
             objective_function[i] *= -1;
         }
     }
-    //iterate over states and terminate when there is no non basic variable 
-    //that cannont increase objective function
+    if(isStandard == false){
+        makeStandardFrom();
+    }
     while(true){
+        displayProblem();
         //find best choice between non basic variables to make it basic variable
         float max_cost = compute_cost(0);
         int max_cost_index = 0;
         for(int i = 0; i < variables_count; i++){
+            if(second){
+                int flg = 0;
+                for(auto x : artificial_variables){
+                    if(i == x){
+                        flg = 1;
+                        break;
+                    }
+                }
+                if(flg){
+                    continue;
+                }
+            }
             float ith_cost = compute_cost(i);
+            cout << "X" << i + 1 << " cost is : " << ith_cost << endl;
             if(ith_cost > max_cost){
                 max_cost = ith_cost;
                 max_cost_index = i;
@@ -317,10 +377,11 @@ void lpProblem::computeSimplex_BigM(float M = 100000){
             int flag = 0;
             //find the basic variable that should leave base by finding the
             //minimum ratio between RHS and factors.
-            float minimum_ratio = M;
+            float minimum_ratio = 1e8;
             int minimum_ratio_index = 0;
             for(int i = 0; i < constraints_count; i++){
                 if(constraint_matrix[i][max_cost_index] > 0){
+                    flag = 1;
                     float ratio = constraint_vector[i] / constraint_matrix[i][max_cost_index];
                     if(ratio < minimum_ratio){
                         minimum_ratio = ratio;
@@ -328,7 +389,15 @@ void lpProblem::computeSimplex_BigM(float M = 100000){
                     }
                 }
             }
-
+            if(flag == 0){
+                int variable_sign = 1 ? objective_function[max_cost_index] > 0 : -1;
+                if(problem_type != 1){
+                    variable_sign *= -1;
+                }
+                cout << variable_sign << " INF";
+                break;
+            }
+            cout << "X" << base[minimum_ratio_index] + 1 << " leaves the base and X" << max_cost_index + 1 << " comes in.\n";
             //make pivot cell value 1 by deviding contraint to its value
             float pivot = constraint_matrix[minimum_ratio_index][max_cost_index];
             for(int i = 0; i < variables_count; i++){
@@ -347,6 +416,17 @@ void lpProblem::computeSimplex_BigM(float M = 100000){
             base[minimum_ratio_index] = max_cost_index;
         }
         else{
+            int artificial_var_flag = 0;
+            for(auto artificial_var_index: artificial_variables){
+                if(result_values[artificial_var_index] != 0){
+                    artificial_var_flag = 1;
+                    cout << "This problem has no solution!" << endl;
+                }
+            }
+            if(artificial_var_flag){
+                break;
+            }
+            solved = true;
             float z = 0;
             for(int i = 0; i < constraints_count; i++){
                 z += objective_function[base[i]] * constraint_vector[i];
@@ -355,11 +435,83 @@ void lpProblem::computeSimplex_BigM(float M = 100000){
             if(problem_type != 1){
                 z *= -1;
             }
+            Z = z;
+            results = new float[variables_count];
             cout << "Value is :" << z << endl;
             for(int i = 0; i < variables_count; i++){
+                results[i] = result_values[i];
                 cout << "X" << i + 1 << ": " << result_values[i] << endl; 
             }
             break;
         }
+    }
+}
+
+void lpProblem::computeSimplex_BigM(float M = 100000){
+
+    //prepare problem and set artificial variables coefficient to M
+    for(auto artificial_variable: artificial_variables){
+        if(problem_type == 2)
+            objective_function[artificial_variable] = M;
+        else
+            objective_function[artificial_variable] = -M;
+    }
+
+    //call solve function
+    solve();
+}
+
+void lpProblem::computeSimplex_2phase(){
+    lpProblem phase1;
+    phase1.variables_count = variables_count;
+    phase1.constraints_count = constraints_count;
+    phase1.constraint_matrix = new float*[constraints_count];
+    for(int i = 0; i < constraints_count; i++){
+        phase1.constraint_matrix[i] = new float[variables_count];
+    }
+    phase1.constraint_vector = new float[constraints_count];
+    phase1.inequalities_type = new string[constraints_count];
+    for(int i = 0; i < constraints_count; i++){
+        //constraint_matrix[i] = new float[variables_count];
+        for(int j = 0; j < variables_count; j++){
+            phase1.constraint_matrix[i][j] = constraint_matrix[i][j];
+
+        }
+        phase1.inequalities_type[i] = inequalities_type[i];
+        phase1.constraint_vector[i] = constraint_vector[i];
+    }
+    phase1.objective_function = new float[variables_count];
+    for(int i = 0; i < variables_count; i++){
+        phase1.objective_function[i] = 0;
+    }
+    for(auto artificial_var_index: artificial_variables){
+        phase1.objective_function[artificial_var_index] = 1;
+    }
+    phase1.problem_type = 2;
+    phase1.base = new int[constraints_count];
+    for(int i = 0; i < constraints_count; i++){
+        phase1.base[i] = base[i];
+    }
+    phase1.isStandard = true;
+    phase1.solve();
+    if(phase1.solved && phase1.Z == 0){
+        displayProblem();
+        cout << "Phase two started : \n";
+        for(auto index : artificial_variables){
+            objective_function[index] = 0;
+        }
+        for(int i = 0; i < constraints_count; i++){
+            for(int j = 0; j < variables_count; j++){
+                constraint_matrix[i][j] = phase1.constraint_matrix[i][j];
+            }
+            inequalities_type[i] = phase1.inequalities_type[i];
+            constraint_vector[i] = phase1.constraint_vector[i];
+        }
+        base = new int[constraints_count];
+        for(int i = 0; i < constraints_count; i++){
+            base[i] = phase1.base[i];
+        }
+        displayProblem();
+        solve(true);
     }
 }

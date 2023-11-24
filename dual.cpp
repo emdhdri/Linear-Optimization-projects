@@ -1,10 +1,11 @@
 #include <iostream>
+#include <cstdlib>
 #include <string>
 #include "LP.h"
 
 using namespace std;
 
-string MENU = "commands: \n1. Insert problem \n2. Display problem \n3. Make Standard \n4. Compute dual \n5.Compute Simplex with Big M \n6. Exit \nEnter the command number: ";
+string MENU = "commands: \n1. Insert problem \n2. Display problem \n3. Make Standard \n4. Compute dual \n5. Compute Simplex using Big M method \n6. Compute Simplex using 2 phase method \n7. Reset problem \n8. Exit \nEnter the command number: ";
 
 void get_problem(lpProblem &p){
     cout << "problem information.\n";
@@ -61,39 +62,59 @@ void get_problem(lpProblem &p){
     //p.makeCanonical();
 }
 
+void press_key(){
+    cout << "press Enter to continue ...";
+    cin.get();
+    cin.get();
+}
+
 int main(){
-    lpProblem p;
+    lpProblem p, back_up;
     while(true){
         system("clear");
         cout << MENU;
         int command;
         cin >> command;
+        if(command == 8){
+            cout << "Bye\n";
+            break;
+        }
+        system("clear");
         if(command == 1){
             get_problem(p);
+            back_up = p;
+            press_key();
         }
         else if(command == 2){
             p.displayProblem();
-            system("read -n 1 -s -r -p \"Press any key to continue\"");
+            press_key();
         }
         else if(command == 3){
             cout << "The standard form is :\n";
             p.makeStandardFrom();
-            system("read -n 1 -s -r -p \"Press any key to continue\"");
+            p.displayProblem();
+            press_key();
         }
         else if(command == 4){
             cout << "The dual is :\n";
             p.computeDual().displayProblem("Y");
-            system("read -n 1 -s -r -p \"Press any key to continue\"");
-
+            press_key();
         }
         else if(command == 5){
             cout << "Result is : \n";
             p.computeSimplex_BigM();
-            system("read -n 1 -s -r -p \"Press any key to continue\"");
+            press_key();
         }
         else if(command == 6){
-            cout << "Bye\n";
-            break;
+            cout << "Result is : \n";
+            p.computeSimplex_2phase();
+            press_key(); 
+        }
+        else if(command == 7){
+            p = back_up;
+            cout << "Problem reseted" << endl;
+            p.displayProblem();
+            press_key();
         }
         else{
             cout << "Invalid command!\n";
